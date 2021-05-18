@@ -24,20 +24,23 @@ public class HelperKata {
         try (InputStream inputStream = new ByteArrayInputStream(decodeBase64(fileBase64));
              BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
         ) {
-            AtomicInteger counter = new AtomicInteger(0);
-            String characterSeparated = FileCSVEnum.CHARACTER_DEFAULT.getId();
-            Set<String> codes = new HashSet<>();
-            ANTERIOR_BONO = null;
-            return Flux.fromIterable(
-                    bufferedReader.lines().skip(1)
-                            .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
-                            .map(tuple -> getCouponDetailDto(counter, codes, tuple)).collect(Collectors.toList())
-            );
+            return getCouponDetailDtoFlux(bufferedReader);
 
         } catch (IOException e) {
             e.printStackTrace();
         }
         return Flux.empty();
+    }
+
+    private static Flux<CouponDetailDto> getCouponDetailDtoFlux(BufferedReader bufferedReader) {
+        AtomicInteger counter = new AtomicInteger(0);
+        String characterSeparated = FileCSVEnum.CHARACTER_DEFAULT.getId();
+        Set<String> codes = new HashSet<>();
+        return Flux.fromIterable(
+                bufferedReader.lines().skip(1)
+                        .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
+                        .map(tuple -> getCouponDetailDto(counter, codes, tuple)).collect(Collectors.toList())
+        );
     }
 
     private static CouponDetailDto getCouponDetailDto(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple) {
@@ -102,8 +105,20 @@ public class HelperKata {
 
     private static boolean isBooleanReplaceAsteriscos(String bonoIn) {
         return bonoIn.startsWith("*")
-                && bonoIn.replace("*", "").length() >= 1
-                && bonoIn.replace("*", "").length() <= 43;
+                && lenghtAsteriscos(bonoIn);
+    }
+
+    private static boolean lenghtAsteriscos(String bonoIn) {
+        return numberBiggestOrEqual(bonoIn.replace("*", "").length(), 1)
+                && numberLessOrEqual(bonoIn.replace("*", "").length(), 43);
+    }
+
+    private static boolean numberLessOrEqual(int num1, int num2) {
+        return num1 <= num2;
+    }
+
+    private static boolean numberBiggestOrEqual(int num1, int num2) {
+        return num1 >= num2;
     }
 
     private static boolean matchesBono(String bonoIn) {
@@ -111,7 +126,7 @@ public class HelperKata {
     }
 
     private static boolean lenghtBono(String bonoIn) {
-        return bonoIn.length() >= 12 && bonoIn.length() <= 13;
+        return numberBiggestOrEqual(bonoIn.length(), 12) && numberLessOrEqual(bonoIn.length(), 13);
     }
 
     public static boolean validateDateRegex(String dateForValidate) {
@@ -154,9 +169,7 @@ public class HelperKata {
             SimpleDateFormat simpleDateFormat = new SimpleDateFormat(FileCSVEnum.PATTERN_SIMPLE_DATE_FORMAT.getId());
             Date dateActual = simpleDateFormat.parse(simpleDateFormat.format(new Date()));
             Date dateCompare = simpleDateFormat.parse(dateForValidate);
-            if (dateCompare.compareTo(dateActual) <= 0) {
-                retorno = true;
-            }
+            retorno = numberLessOrEqual(dateCompare.compareTo(dateActual), 0);
         } catch (Exception e) {
             e.printStackTrace();
         }
