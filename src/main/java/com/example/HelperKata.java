@@ -13,9 +13,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+//
 
 public class HelperKata {
-    private static final  String EMPTY_STRING = "";
+    private static final String EMPTY_STRING = "";
     private static String ANTERIOR_BONO = null;
 
     public static Flux<CouponDetailDto> getListFromBase64File(final String fileBase64) {
@@ -30,46 +31,7 @@ public class HelperKata {
             return Flux.fromIterable(
                     bufferedReader.lines().skip(1)
                             .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
-                            .map(tuple -> {
-                                String dateValidated = null;
-                                String errorMessage = null;
-                                String bonoForObject = null;
-                                String bonoEnviado;
-
-                                if (tuple.getT1().isBlank() || tuple.getT2().isBlank()) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString();
-                                } else if (!codes.add(tuple.getT1())) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString();
-                                } else if (!validateDateRegex(tuple.getT2())) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString();
-                                } else if (validateDateIsMinor(tuple.getT2())) {
-                                    errorMessage = ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString();
-                                } else {
-                                    dateValidated = tuple.getT2();
-                                }
-
-                                bonoEnviado = tuple.getT1();
-                                if (ANTERIOR_BONO == null || ANTERIOR_BONO.equals("")) {
-                                    ANTERIOR_BONO = typeBono(bonoEnviado);
-                                    if (ANTERIOR_BONO == "") {
-                                        bonoForObject = null;
-                                    } else {
-                                        bonoForObject = bonoEnviado;
-                                    }
-                                } else if (ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
-                                    bonoForObject = bonoEnviado;
-                                } else if (!ANTERIOR_BONO.equals(typeBono(bonoEnviado))) {
-                                    bonoForObject = null;
-                                }
-
-                                return CouponDetailDto.aCouponDetailDto()
-                                        .withCode(bonoForObject)
-                                        .withDueDate(dateValidated)
-                                        .withNumberLine(counter.incrementAndGet())
-                                        .withMessageError(errorMessage)
-                                        .withTotalLinesFile(1)
-                                        .build();
-                            }).collect(Collectors.toList())
+                            .map(tuple -> getCouponDetailDto(counter, codes, tuple)).collect(Collectors.toList())
             );
 
         } catch (IOException e) {
@@ -78,21 +40,78 @@ public class HelperKata {
         return Flux.empty();
     }
 
-    public static String typeBono(String bonoIn) {
-        if (bonoIn.chars().allMatch(Character::isDigit)
-                && bonoIn.length() >= 12
-                && bonoIn.length() <= 13) {
-            return ValidateCouponEnum.EAN_13.getTypeOfEnum();
-        }
-        if (bonoIn.startsWith("*")
-                && bonoIn.replace("*", "").length() >= 1
-                && bonoIn.replace("*", "").length() <= 43) {
-            return ValidateCouponEnum.EAN_39.getTypeOfEnum();
+    private static CouponDetailDto getCouponDetailDto(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple) {
+        String bonoEnviado;
+        String dateValidated = null;
+        String errorMessage = null;
 
+        if (isBlank(tuple)) {
+            errorMessage = ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString();
+        } else if (!codes.add(tuple.getT1())) {
+            errorMessage = ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString();
+        } else if (!validateDateRegex(tuple.getT2())) {
+            errorMessage = ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString();
+        } else if (validateDateIsMinor(tuple.getT2())) {
+            errorMessage = ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString();
+        } else {
+            dateValidated = tuple.getT2();
         }
-        else {
-            return ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum();
+
+        bonoEnviado = tuple.getT1();
+        String bonoForObject = getBonoForObject(bonoEnviado);
+
+        return CouponDetailDto.aCouponDetailDto()
+                .withCode(bonoForObject)
+                .withDueDate(dateValidated)
+                .withNumberLine(counter.incrementAndGet())
+                .withMessageError(errorMessage)
+                .withTotalLinesFile(1)
+                .build();
+    }
+
+    private static boolean isBlank(Tuple2<String, String> tuple) {
+        return tuple.getT1().isBlank() || tuple.getT2().isBlank();
+    }
+
+    private static String getBonoForObject(String bonoEnviado) {
+        String bonoForObject = null;
+        if (isNullOrEquals(bonoEnviado)) {
+            ANTERIOR_BONO = typeBono(bonoEnviado);
+            bonoForObject = bonoEnviado;
         }
+        return bonoForObject;
+    }
+
+    private static boolean isNullOrEquals(String bonoEnviado) {
+        return ANTERIOR_BONO == null || ANTERIOR_BONO.equals(typeBono(bonoEnviado));
+    }
+
+    public static String typeBono(String bonoIn) {
+        String retorno;
+        if (matchesBono(bonoIn)) {
+            retorno = ValidateCouponEnum.EAN_13.getTypeOfEnum();
+        }
+        if (isBooleanReplaceAsteriscos(bonoIn)) {
+            retorno = ValidateCouponEnum.EAN_39.getTypeOfEnum();
+
+        } else {
+            retorno = ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum();
+        }
+        return retorno;
+    }
+
+    private static boolean isBooleanReplaceAsteriscos(String bonoIn) {
+        return bonoIn.startsWith("*")
+                && bonoIn.replace("*", "").length() >= 1
+                && bonoIn.replace("*", "").length() <= 43;
+    }
+
+    private static boolean matchesBono(String bonoIn) {
+        return bonoIn.chars().allMatch(Character::isDigit) && lenghtBono(bonoIn);
+    }
+
+    private static boolean lenghtBono(String bonoIn) {
+        return bonoIn.length() >= 12 && bonoIn.length() <= 13;
     }
 
     public static boolean validateDateRegex(String dateForValidate) {
@@ -108,30 +127,40 @@ public class HelperKata {
     }
 
     private static Tuple2<String, String> getTupleOfLine(String line, String[] array, String characterSeparated) {
-        return Objects.isNull(array) || array.length == 0
+        return condicionprincipal(array)
                 ? Tuples.of(EMPTY_STRING, EMPTY_STRING)
-                : array.length < 2
-                ? line.startsWith(characterSeparated)
-                ? Tuples.of(EMPTY_STRING, array[0])
-                : Tuples.of(array[0], EMPTY_STRING)
+                : ternario2(line, array, characterSeparated);
+    }
+
+    private static boolean condicionprincipal(String[] array) {
+        return Objects.isNull(array) || array.length == 0;
+    }
+
+    private static Tuple2<String, String> ternario2(String line, String[] array, String characterSeparated) {
+        return array.length < 2
+                ? ternario3(line, array, characterSeparated)
                 : Tuples.of(array[0], array[1]);
     }
 
+    private static Tuple2<String, String> ternario3(String line, String[] array, String characterSeparated) {
+        return line.startsWith(characterSeparated)
+                ? Tuples.of(EMPTY_STRING, array[0])
+                : Tuples.of(array[0], EMPTY_STRING);
+    }
+
     public static boolean validateDateIsMinor(String dateForValidate) {
+        Boolean retorno = false;
         try {
-            SimpleDateFormat sdf = new SimpleDateFormat(FileCSVEnum.PATTERN_SIMPLE_DATE_FORMAT.getId());
-            Date dateActual = sdf.parse(sdf.format(new Date()));
-            Date dateCompare = sdf.parse(dateForValidate);
-            if (dateCompare.compareTo(dateActual) < 0) {
-                return true;
-            } else if (dateCompare.compareTo(dateActual) == 0) {
-                return true;
+            SimpleDateFormat simpleDateFormat = new SimpleDateFormat(FileCSVEnum.PATTERN_SIMPLE_DATE_FORMAT.getId());
+            Date dateActual = simpleDateFormat.parse(simpleDateFormat.format(new Date()));
+            Date dateCompare = simpleDateFormat.parse(dateForValidate);
+            if (dateCompare.compareTo(dateActual) <= 0) {
+                retorno = true;
             }
         } catch (Exception e) {
             e.printStackTrace();
-            return false;
         }
-        return false;
+        return retorno;
     }
 
 }
