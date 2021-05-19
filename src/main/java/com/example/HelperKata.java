@@ -44,24 +44,14 @@ public class HelperKata {
     }
 
     private static CouponDetailDto getCouponDetailDto(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple) {
+        String dateValidated;
+        String bonoForObject;
         String bonoEnviado;
-        String dateValidated = null;
-        String errorMessage = null;
 
-        if (isBlank(tuple)) {
-            errorMessage = ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString();
-        } else if (!codes.add(tuple.getT1())) {
-            errorMessage = ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString();
-        } else if (!validateDateRegex(tuple.getT2())) {
-            errorMessage = ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString();
-        } else if (validateDateIsMinor(tuple.getT2())) {
-            errorMessage = ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString();
-        } else {
-            dateValidated = tuple.getT2();
-        }
-
+        String errorMessage = errorMessage(codes, tuple);
+        dateValidated = Optional.of(errorMessage).filter(el -> el.equals(null)).map(el -> tuple.getT2()).orElse(null);
         bonoEnviado = tuple.getT1();
-        String bonoForObject = getBonoForObject(bonoEnviado);
+        bonoForObject = getBonoForObject(bonoEnviado);
 
         return CouponDetailDto.aCouponDetailDto()
                 .withCode(bonoForObject)
@@ -70,6 +60,21 @@ public class HelperKata {
                 .withMessageError(errorMessage)
                 .withTotalLinesFile(1)
                 .build();
+    }
+
+    private static String errorMessage(Set<String> codes, Tuple2<String, String> tuple){
+        Map<String,Boolean> map = new LinkedHashMap();
+        map.put(ExperienceErrorsEnum.FILE_ERROR_COLUMN_EMPTY.toString(),isBlank(tuple));
+        map.put(ExperienceErrorsEnum.FILE_ERROR_CODE_DUPLICATE.toString(),!codes.add(tuple.getT1()));
+        map.put(ExperienceErrorsEnum.FILE_ERROR_DATE_PARSE.toString(),!validateDateRegex(tuple.getT2()));
+        map.put(ExperienceErrorsEnum.FILE_DATE_IS_MINOR_OR_EQUALS.toString(),validateDateIsMinor(tuple.getT2()));
+
+        for (Map.Entry<String, Boolean> jugador : map.entrySet()){
+            if(jugador.getValue()){
+                return jugador.getKey();
+            }
+        }
+        return null;
     }
 
     private static boolean isBlank(Tuple2<String, String> tuple) {
@@ -91,15 +96,14 @@ public class HelperKata {
 
     public static String typeBono(String bonoIn) {
         String retorno;
-        if (matchesBono(bonoIn)) {
-            retorno = ValidateCouponEnum.EAN_13.getTypeOfEnum();
-        }
-        if (isBooleanReplaceAsteriscos(bonoIn)) {
-            retorno = ValidateCouponEnum.EAN_39.getTypeOfEnum();
 
-        } else {
-            retorno = ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum();
-        }
+        retorno = Optional.of(bonoIn).filter(HelperKata::matchesBono)
+                .map(el -> ValidateCouponEnum.EAN_13
+                        .getTypeOfEnum()).toString();
+        retorno = Optional.of(bonoIn)
+                .filter(HelperKata::isBooleanReplaceAsteriscos)
+                .map(el -> ValidateCouponEnum.EAN_39.getTypeOfEnum())
+                .orElse(ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum());
         return retorno;
     }
 
