@@ -11,7 +11,7 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 //
 
@@ -19,28 +19,28 @@ public class HelperKata {
     private static final String EMPTY_STRING = "";
     private static String ANTERIOR_BONO = null;
 
-    public static Flux<CouponDetailDto> getListFromBase64File(final String fileBase64) {
-
-        try (InputStream inputStream = new ByteArrayInputStream(decodeBase64(fileBase64));
-             BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
-        ) {
-            return getCouponDetailDtoFlux(bufferedReader);
-
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return Flux.empty();
+    private static Flux<String> createFluxFrom(String fileBase64) {
+        return Flux.using(
+                () -> new BufferedReader(
+                        new InputStreamReader(
+                                new ByteArrayInputStream(decodeBase64(fileBase64))))
+                        .lines(),
+                Flux::fromStream,
+                Stream::close
+        );
     }
 
-    private static Flux<CouponDetailDto> getCouponDetailDtoFlux(BufferedReader bufferedReader) {
+    public static Flux<CouponDetailDto> getListFromBase64File(final String fileBase64) {
+        return getCouponDetailDtoFlux(createFluxFrom(fileBase64));
+    }
+
+    private static Flux<CouponDetailDto> getCouponDetailDtoFlux(Flux<String> fileFlux) {
         AtomicInteger counter = new AtomicInteger(0);
         String characterSeparated = FileCSVEnum.CHARACTER_DEFAULT.getId();
         Set<String> codes = new HashSet<>();
-        return Flux.fromIterable(
-                bufferedReader.lines().skip(1)
-                        .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
-                        .map(tuple -> getCouponDetailDto(counter, codes, tuple)).collect(Collectors.toList())
-        );
+        return fileFlux.skip(1)
+                .map(line -> getTupleOfLine(line, line.split(characterSeparated), characterSeparated))
+                .map(tuple -> getCouponDetailDto(counter, codes, tuple));
     }
 
     private static CouponDetailDto getCouponDetailDto(AtomicInteger counter, Set<String> codes, Tuple2<String, String> tuple) {
