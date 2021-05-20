@@ -82,12 +82,20 @@ public class HelperKata {
     }
 
     private static String getBonoForObject(String bonoEnviado) {
+        //Imperativo
         String bonoForObject = null;
         if (isNullOrEquals(bonoEnviado)) {
             ANTERIOR_BONO = typeBono(bonoEnviado);
             bonoForObject = bonoEnviado;
         }
         return bonoForObject;
+
+        //Funcional PREGUNTAR
+        /*return Optional.of(bonoEnviado).filter(el->isNullOrEquals(el)).map(el->{
+            ANTERIOR_BONO=typeBono(el);
+            return el;
+        }).orElse(null);*/
+
     }
 
     private static boolean isNullOrEquals(String bonoEnviado) {
@@ -95,16 +103,10 @@ public class HelperKata {
     }
 
     public static String typeBono(String bonoIn) {
-        String retorno;
-
-        retorno = Optional.of(bonoIn).filter(HelperKata::matchesBono)
-                .map(el -> ValidateCouponEnum.EAN_13
-                        .getTypeOfEnum()).toString();
-        retorno = Optional.of(bonoIn)
+        return Optional.of(bonoIn)
                 .filter(HelperKata::isBooleanReplaceAsteriscos)
                 .map(el -> ValidateCouponEnum.EAN_39.getTypeOfEnum())
                 .orElse(ValidateCouponEnum.ALPHANUMERIC.getTypeOfEnum());
-        return retorno;
     }
 
     private static boolean isBooleanReplaceAsteriscos(String bonoIn) {
@@ -125,13 +127,13 @@ public class HelperKata {
         return num1 >= num2;
     }
 
-    private static boolean matchesBono(String bonoIn) {
-        return bonoIn.chars().allMatch(Character::isDigit) && lenghtBono(bonoIn);
-    }
+//    private static boolean matchesBono(String bonoIn) {
+//        return bonoIn.chars().allMatch(Character::isDigit) && lenghtBono(bonoIn);
+//    }
 
-    private static boolean lenghtBono(String bonoIn) {
-        return numberBiggestOrEqual(bonoIn.length(), 12) && numberLessOrEqual(bonoIn.length(), 13);
-    }
+//    private static boolean lenghtBono(String bonoIn) {
+//        return numberBiggestOrEqual(bonoIn.length(), 12) && numberLessOrEqual(bonoIn.length(), 13);
+//    }
 
     public static boolean validateDateRegex(String dateForValidate) {
         String regex = FileCSVEnum.PATTERN_DATE_DEFAULT.getId();
